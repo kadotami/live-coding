@@ -3,7 +3,7 @@ import numpy as np
 import wave
 import matplotlib.pyplot as plt
 
-chunk = 1024
+CHUNK = 1024
 FORMAT = pyaudio.paInt16
 
 CHANNELS = 1 #モノラル（2にするとステレオ）
@@ -34,52 +34,48 @@ def check_scale(fft_data, freq_list):
     @return ドレミ
     """
     max_freq = freq_list[np.argmax(fft_data)]
+    if(max_freq < 0): max_freq = max_freq * -1
     print(max_freq)
     while(max_freq > 82.4):
        max_freq = max_freq / 2
     return SCALE_ALLAY[getNearestValue(Hz_ARRAY, max_freq)]
 
-    
+if __name__ == "__main__":
+    audio = pyaudio.PyAudio()
+
+    stream = audio.open(format = FORMAT,
+                    channels = CHANNELS,
+                    rate = RATE,
+                    input = True,
+                    frames_per_buffer = CHUNK)
+    print("Now Recording...")
+    # for i in range(int(RATE / CHUNK * 1)):
+    #     data = []
+    #     d = np.frombuffer(stream.read(CHUNK), dtype='int16')
+    #     data.append(d)
+    # data = np.asarray(data).flatten()
+    # fft_data = np.abs(np.fft.fft(data))    #FFTした信号の強度
+    # freq_list = np.fft.fftfreq(data.shape[0], d=1.0/RATE)    #周波数（グラフの横軸）の取得
+    # plt.plot(freq_list, fft_data)
+    # scale = check_scale(fft_data, freq_list)
+    # print(scale)
+    # # plt.xlim(0, 5000)    #0～5000Hzまでとりあえず表示する
+    # plt.show()
 
 
-audio = pyaudio.PyAudio()
-
-stream = audio.open(format = FORMAT,
-                channels = CHANNELS,
-                rate = RATE,
-                input = True,
-                frames_per_buffer = chunk)
-
-#レコード開始
-print("Now Recording...")
-data = []
-for i in range(0, int(RATE / chunk * RECORD_SECONDS)):
-  d = np.frombuffer(stream.read(chunk), dtype='int16')
-  data.append(d)
-
-print("Finished Recording.")
-
-stream.close()
-audio.terminate()
-
-binary_data = b"".join(data) #Python3用
-
-#録音したデータを配列に変換
-result = np.frombuffer(binary_data,dtype="int16") / float(2**15)
-
-data = np.asarray(data).flatten()
-fft_data = np.abs(np.fft.fft(data))    #FFTした信号の強度
-freq_list = np.fft.fftfreq(data.shape[0], d=1.0/RATE)    #周波数（グラフの横軸）の取得
-
-scale = check_scale(fft_data, freq_list)
-
-print(scale)
-
-plt.plot(freq_list, fft_data)
-plt.xlim(0, 1000)    #0～5000Hzまでとりあえず表示する
-plt.show()
-
-print(len(result))
-
-# plt.plot(result)
-# plt.show()
+    try:
+        while stream.is_active():
+            data = []
+            for i in range(0, int(RATE / CHUNK * SECONDS_OF_BEAT)):
+                  d = np.frombuffer(stream.read(CHUNK), dtype='int16')
+                  data.append(d)
+            data = np.asarray(data).flatten()
+            fft_data = np.abs(np.fft.fft(data))    #FFTした信号の強度
+            freq_list = np.fft.fftfreq(data.shape[0], d=1.0/RATE)    #周波数（グラフの横軸）の取得
+            scale = check_scale(fft_data, freq_list)
+            print(scale)
+    except KeyboardInterrupt:
+        stream.stop_stream()
+        stream.close()
+        audio.terminate()
+    print("Finished Recording.")
